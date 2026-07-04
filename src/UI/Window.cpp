@@ -9,17 +9,19 @@
 #include <QWidget>
 
 #include "RubiksCube.hpp"
+#include "SolveManager.hpp"
 #include "UI/Timer.hpp"
 #include "UI/Window.hpp"
 
 namespace UI {
 
-Window::Window(QWidget* parent) : QWidget(parent) {
+Window::Window(const char* filename, QWidget* parent) : QWidget(parent) {
 	// First define the layout
 	m_layout = new QGridLayout(this);
 
 	// Then define the rest of the variables
 	m_cube = new RubiksCube();
+    m_solveManager = new SolveManager(filename);
 	m_scrambleLabel = new QLabel(m_cube->getStringScramble(), this);
 	m_font = QFont();
 	m_timer = new Timer(this);
@@ -41,6 +43,7 @@ Window::Window(QWidget* parent) : QWidget(parent) {
 Window::~Window() {
 	// In the destructor, delete the pointers that aren't deleted by Qt automatically
 	delete m_cube;
+	delete m_solveManager;
 	delete m_keyEvent;
 
 	// Now stop the timer thread
@@ -53,8 +56,18 @@ void Window::keyPressEvent(QKeyEvent* event) {
 	// If active, then we are stopping the timer and need to generate a new scramble.
 	// If inactive, then we are starting the timer and need to reset it before marking it as active.
 
-	// Stopping timer -> generate a new scramble
+	// Stopping timer -> write our solve data to a .csv and generate a new scramble
 	if (m_timer->active()) { 
+		// Create a data solve_t
+		double time = m_timer->time();
+		long long date = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		uint8_t* scramble = m_cube->getRawScramble();
+		solve_t solve = { time, date, scramble };
+
+		// Record the solve to our .csv file
+		m_solveManager->addSolve(solve);
+
+		// Generate and display a new scramble
 		m_cube->generateScramble();
 		m_scrambleLabel->setText(m_cube->getStringScramble());
 	}

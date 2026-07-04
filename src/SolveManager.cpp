@@ -1,22 +1,33 @@
 #include <cstdint> // uint8_t
 #include <cstdlib> // std::exit
+#include <filesystem> // std::filesteam::exists
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include "SolveManager.hpp"
 
 SolveManager::SolveManager(const char* filename) {
+
+	// First determine if the given filename already existed
+	bool fileExists = true;
+	
+	if (!std::filesystem::exists(filename)) fileExists = false;
+
 	// Open a file with the given filename
 	m_fileStream = std::fstream ();
-	m_fileStream.open(filename, std::ios::in | std::ios::app); // Input and appending
+	m_fileStream.open(filename, std::ios::in | std::ios::out | std::ios::app); // Input and appending
 
 	// Check if the function call failed (e.g., file does not exist)
 	if (m_fileStream.bad()) {
 		std::cerr << "Error: failed to open file " << filename << std::endl;
 		std::exit(1);
 	}
+
+	// If the file was just created (fileExists == false beforehand), write a header for the .csv file.
+	if (!fileExists) m_fileStream << "time,date,scramble\n";
 
 	// Initialize solves and averages
 	m_solves = std::vector<solve_t>();
@@ -29,6 +40,25 @@ SolveManager::SolveManager(const char* filename) {
 // Make sure to close our file stream when we're done
 SolveManager::~SolveManager() {
 	m_fileStream.close();
+}
+
+void SolveManager::addSolve(const solve_t& solve) {
+	// Add our solve to our array
+	m_solves.push_back(solve);
+
+	// Update our averages
+	updateAverages();
+	
+	// Get our solve as a string
+	// To convert time to a string with only 2 decimal places (instead of X.XX0000), use std::streamstring
+	std::stringstream strStream;
+	strStream << std::fixed << std::setprecision(2) << solve.time;
+	std::string solveStr = strStream.str() + "," + std::to_string(solve.date) + "," + SolveManager::ScrambleToString(solve.scramble); 
+
+	// Write to our .csv file using our string
+	m_fileStream.seekp(0, m_fileStream.end);
+	m_fileStream << solveStr.c_str();
+	m_fileStream << "\n";
 }
 
 // Convert a scramble representation to a string.
@@ -162,6 +192,27 @@ uint8_t* SolveManager::StringToScramble(const std::string& scramble) {
 	return scrambleRep;
 }
 
+void SolveManager::updateAverages() {
+	double sumOfTimes = 0.0;
+	size_t numSolves = 0;
+
+	// Looping from the end (newest) to the start (oldest),
+	// Calculate ao5, ao12, and ao100 (if applicable).
+	for (int i = m_solves.size() - 1; i >= 0; --i) {
+		sumOfTimes += m_solves[i].time;
+
+		++numSolves;
+
+		// Compute the corresponding average, if/when numSolves gets to that number of solves
+		if (numSolves == 5) m_averages.ao5 = sumOfTimes / 5;
+		if (numSolves == 12) m_averages.ao12 = sumOfTimes / 12;
+		if (numSolves == 100) m_averages.ao100 = sumOfTimes / 100;
+	}
+
+	// Assuming we have a solve, compute the average of the entire session
+	if (numSolves > 0) m_averages.average = sumOfTimes / numSolves;
+}
+
 // Private method to read in the data from the current .csv file
 void SolveManager::readFile() {
 	// First move to the start of the file
@@ -214,25 +265,9 @@ void SolveManager::readFile() {
 		++numLines;
 	}
 
+	// Reset flags that might have been set while reading the file
+	m_fileStream.clear();
+
 	// Now compute averages
-
-	// Helper variables
-	double sumOfTimes = 0.0;
-	size_t numSolves = 0;
-
-	// Looping from the end (newest) to the start (oldest),
-	// Calculate ao5, ao12, and ao100 (if applicable).
-	for (int i = m_solves.size() - 1; i >= 0; --i) {
-		sumOfTimes += m_solves[i].time;
-		
-		++numSolves;
-
-		// Compute the corresponding average, if/when numSolves gets to that number of solves
-		if (numSolves == 5) m_averages.ao5 = sumOfTimes / 5;
-		if (numSolves == 12) m_averages.ao12 = sumOfTimes / 12;
-		if (numSolves == 100) m_averages.ao100 = sumOfTimes / 100;
-	}
-
-	// Assuming we have a solve, compute the average of the entire session
-	if (numSolves > 0) m_averages.average = sumOfTimes / numSolves;
+	updateAverages();
 }

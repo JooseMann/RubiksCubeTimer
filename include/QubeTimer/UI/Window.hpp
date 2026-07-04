@@ -11,6 +11,7 @@
 #include <QWidget>
 
 #include "RubiksCube.hpp"
+#include "SolveManager.hpp"
 #include "UI/Timer.hpp"
 
 namespace UI {
@@ -19,8 +20,8 @@ class Window : public QWidget {
 Q_OBJECT
 
 public: 
-	explicit Window(QWidget* parent = nullptr);
-	~Window(); // { delete m_cube; delete m_keyEvent; } // The rubiks cube and key event aren't deleted automatically, so delete them here
+	explicit Window(const char* filename = "session0.csv", QWidget* parent = nullptr); // filename refers to the .csv file that contains our solve data
+	~Window();
 
 	// Qt overrides
 	void keyPressEvent(QKeyEvent* event);
@@ -62,6 +63,7 @@ private:
 
 	// Other
 	RubiksCube* m_cube; // Our representation of the Rubiks cube
+	SolveManager* m_solveManager; // Manager to hold data on our solves over time.
 	bool m_running; // True while the program is running, false once it closes. Used to help manage threads.
 	std::thread m_timerThread; // The thread that handles incrementing the timer while it is active. 
 

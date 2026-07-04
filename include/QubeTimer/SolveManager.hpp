@@ -28,7 +28,7 @@ public:
 
 	// std::vector<solve_t> solves
 	const std::vector<solve_t>& solves() const { return m_solves; }
-	void addSolve(const solve_t& solve) { m_solves.push_back(solve); }
+	void addSolve(const solve_t& solve); 
 
 	// averages_t averages
 	float ao5() const { return m_averages.ao5; }
@@ -44,6 +44,7 @@ private:
 	std::vector<solve_t> m_solves; // Solve list as a dynamic array
 	averages_t m_averages; // Solve averages for the current session
 
+	void updateAverages();
 	void readFile();
 };
 
