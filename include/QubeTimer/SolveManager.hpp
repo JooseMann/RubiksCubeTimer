@@ -7,19 +7,7 @@
 #include <string>
 #include <vector>
 
-typedef struct {
-	double time; // Time of the solve
-	long date; // Date & time solved, represented in time since the Unix Epoch
-	uint8_t* scramble; // Binary representation of the scramble
-} solve_t;
-
-typedef struct {
-	float ao5; // Current Ao5
-	float ao12; // Current Ao12
-	float ao100; // Current Ao100
-	float average; // Session average
-} averages_t;
-
+#include "types.hpp"
 
 class SolveManager {
 public:
@@ -31,10 +19,7 @@ public:
 	void addSolve(const solve_t& solve); 
 
 	// averages_t averages
-	float ao5() const { return m_averages.ao5; }
-	float ao12() const { return m_averages.ao12; }
-	float ao100() const { return m_averages.ao100; }
-	float average() const { return m_averages.average; }
+	const averages_t& averages() const { return m_averages; }
 
 	static uint8_t* StringToScramble(const std::string& scramble);
     static std::string ScrambleToString(const uint8_t* scramble, int scrambleLen = 30);

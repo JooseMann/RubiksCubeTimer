@@ -12,6 +12,7 @@
 
 #include "RubiksCube.hpp"
 #include "SolveManager.hpp"
+#include "UI/Averages.hpp"
 #include "UI/Timer.hpp"
 
 namespace UI {
@@ -40,6 +41,10 @@ public:
 	void setScrambleLabel(QLabel* label) { m_scrambleLabel = label; }
 	void setupScrambleLabel();
 
+	// Averages* averages
+	Averages* averages() const { return m_averages; }
+	void setAverages(Averages* averages) { m_averages = averages; }
+
 	// Timer* timer
 	Timer* timer() const { return m_timer; }
 	void incrementTimer() { m_timer->tick(); }
@@ -56,6 +61,7 @@ private:
 	QGridLayout* m_layout; // Grid layout of the window
 	QFont m_font; // The scramble's font
 	QLabel* m_scrambleLabel; // Label that contains the scramble, to be shown on the screen
+	Averages* m_averages; // Label containing information about our solve averages
 	Timer* m_timer; // Timer to be shown on screen
 
 	// Related UI

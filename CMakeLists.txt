@@ -21,13 +21,15 @@ add_executable(QubeTimer)
 target_sources(QubeTimer
     PRIVATE
         # Headers (Qt Widgets)
-        include/QubeTimer/UI/Window.hpp
+        include/QubeTimer/UI/Averages.hpp
         include/QubeTimer/UI/Timer.hpp
+        include/QubeTimer/UI/Window.hpp
         # Source files
         src/main.cpp
         src/RubiksCube.cpp
         src/SolveManager.cpp
-        src/UI/Window.cpp
+        src/UI/Averages.cpp
         src/UI/Timer.cpp
+        src/UI/Window.cpp
 )
 target_link_libraries(QubeTimer Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Widgets)

@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "types.hpp"
 #include "SolveManager.hpp"
 
 SolveManager::SolveManager(const char* filename) {

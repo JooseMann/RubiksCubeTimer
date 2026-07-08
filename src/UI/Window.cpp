@@ -1,5 +1,5 @@
 #include <thread>
-#include <unistd.h>
+#include <unistd.h> // usleep(int)
 
 #include <Qt>
 #include <QFont>
@@ -10,6 +10,7 @@
 
 #include "RubiksCube.hpp"
 #include "SolveManager.hpp"
+#include "UI/Averages.hpp"
 #include "UI/Timer.hpp"
 #include "UI/Window.hpp"
 
@@ -25,6 +26,7 @@ Window::Window(const char* filename, QWidget* parent) : QWidget(parent) {
 	m_scrambleLabel = new QLabel(m_cube->getStringScramble(), this);
 	m_font = QFont();
 	m_timer = new Timer(this);
+	m_averages = new Averages(this);
 	m_keyEvent = new QKeyEvent(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier);
 
 	// Additional variables for handling the timer thread
@@ -34,10 +36,14 @@ Window::Window(const char* filename, QWidget* parent) : QWidget(parent) {
 	// Set the minimum size to 800x600 (though, ideally it'd be larger)
 	setMinimumSize(800, 600);
 	
+	// Setup all of the UI elements
 	setupLayout();
 	setupFont();
 	setupScrambleLabel();
 	setupTimer();
+
+	// Setup our averages label
+	m_averages->updateAverages(m_solveManager->averages());
 }
 
 Window::~Window() {
@@ -56,7 +62,7 @@ void Window::keyPressEvent(QKeyEvent* event) {
 	// If active, then we are stopping the timer and need to generate a new scramble.
 	// If inactive, then we are starting the timer and need to reset it before marking it as active.
 
-	// Stopping timer -> write our solve data to a .csv and generate a new scramble
+	// Stopping timer -> write our solve data to a .csv, update our averages, and generate a new scramble
 	if (m_timer->active()) { 
 		// Create a data solve_t
 		double time = m_timer->time();
@@ -66,6 +72,9 @@ void Window::keyPressEvent(QKeyEvent* event) {
 
 		// Record the solve to our .csv file
 		m_solveManager->addSolve(solve);
+
+		// Update our averages
+		m_averages->updateAverages(m_solveManager->averages());
 
 		// Generate and display a new scramble
 		m_cube->generateScramble();
@@ -97,10 +106,10 @@ void Window::setupLayout() {
 	m_layout->setVerticalSpacing(0); // No vertical spacing between rows
 
 	// Add our widgets to the layout
-	// Scramble is top-center, timer is in the exact center
+	// Scramble is top-center, timer is in the exact center, averages are bottom-left
 	m_layout->addWidget(m_scrambleLabel, 0, 0, 1, 10, Qt::AlignHCenter); // Also creates 10 columns
-	m_layout->addWidget(new QLabel("", this), 0, 0, 10, 1); // Dummy widget for creating 10 rows
 	m_layout->addWidget(m_timer, 2, 0, 6, 10, Qt::AlignCenter);
+	m_layout->addWidget(m_averages->avgLabel(), 6, 0, 10, 2, Qt::AlignLeft | Qt::AlignBottom); // Also creates 10 rows
 
 	// Disallow the rows and columns from stretching
 	// Also set each of their sizes to 1/10th of the screen's width or height, respectively
