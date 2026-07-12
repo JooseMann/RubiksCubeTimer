@@ -28,6 +28,7 @@ private:
 	std::fstream m_fileStream; // IO stream for reading and writing solves
 	std::vector<solve_t> m_solves; // Solve list as a dynamic array
 	averages_t m_averages; // Solve averages for the current session
+	size_t m_numSolves; // Number of solves currently stored
 
 	void updateAverages();
 	void readFile();

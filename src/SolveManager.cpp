@@ -1,3 +1,4 @@
+#include <algorithm> // sort()
 #include <cstdint> // uint8_t
 #include <cstdlib> // std::exit
 #include <filesystem> // std::filesteam::exists
@@ -38,14 +39,19 @@ SolveManager::SolveManager(const char* filename) {
 	readFile();
 }
 
-// Make sure to close our file stream when we're done
+// Make sure to close our file stream and free memory when we're done
 SolveManager::~SolveManager() {
 	m_fileStream.close();
+
+	for (unsigned int i = 0; i < m_numSolves; ++i) {
+		delete [] m_solves[i].scramble;
+	}
 }
 
 void SolveManager::addSolve(const solve_t& solve) {
 	// Add our solve to our array
 	m_solves.push_back(solve);
+	++m_numSolves;
 
 	// Update our averages
 	updateAverages();
@@ -195,23 +201,56 @@ uint8_t* SolveManager::StringToScramble(const std::string& scramble) {
 
 void SolveManager::updateAverages() {
 	double sumOfTimes = 0.0;
+	double adjustedTime = 0.0;
 	size_t numSolves = 0;
+	std::vector<double> sortedSolves = std::vector<double>();
 
 	// Looping from the end (newest) to the start (oldest),
 	// Calculate ao5, ao12, and ao100 (if applicable).
-	for (int i = m_solves.size() - 1; i >= 0; --i) {
+	for (int i = m_numSolves - 1; i >= 0; --i) {
 		sumOfTimes += m_solves[i].time;
+		sortedSolves.push_back(m_solves[i].time);
 
 		++numSolves;
 
 		// Compute the corresponding average, if/when numSolves gets to that number of solves
-		if (numSolves == 5) m_averages.ao5 = sumOfTimes / 5;
-		if (numSolves == 12) m_averages.ao12 = sumOfTimes / 12;
-		if (numSolves == 100) m_averages.ao100 = sumOfTimes / 100;
+		if (numSolves == 5) { // Ao5
+			// Remove the 5% best and worst solves (for Ao5, the best and worst solve)
+			sort(sortedSolves.begin(), sortedSolves.end()); // Sort so that we know the best and worst times
+
+			adjustedTime = sumOfTimes;
+			adjustedTime -= sortedSolves[0]; // Best solve
+			adjustedTime -= sortedSolves[sortedSolves.size() - 1]; // Worst solve
+
+			m_averages.ao5 = adjustedTime / 3;
+		}
+		if (numSolves == 12) { // Ao12
+			// Same deal as Ao5: Remove the best and worst solve time
+			sort(sortedSolves.begin(), sortedSolves.end()); // Sort to find the best & worst times
+
+			adjustedTime = sumOfTimes;
+			adjustedTime -= sortedSolves[0]; // Best solve
+			adjustedTime -= sortedSolves[sortedSolves.size() - 1]; // Worst solve
+
+			m_averages.ao12 = adjustedTime / 10;
+		}
+		if (numSolves == 100) { // Ao100
+			// Same idea, but removing the 5% best and worst scores now involves removing 5 of each
+			sort(sortedSolves.begin(), sortedSolves.end()); // Sort all 100 solves to find the best and worst ones
+
+			adjustedTime = sumOfTimes;
+
+			for (int j = 0; j < 5; ++j) {
+				adjustedTime -= sortedSolves[i]; // Best 5 solves
+				adjustedTime -= sortedSolves[sortedSolves.size() - i - 1]; // Worst 5 solves
+			}
+
+			m_averages.ao100 = adjustedTime / 90;
+		}
 	}
 
 	// Assuming we have a solve, compute the average of the entire session
-	if (numSolves > 0) m_averages.average = sumOfTimes / numSolves;
+	if (m_numSolves > 0) m_averages.average = sumOfTimes / m_numSolves;
 }
 
 // Private method to read in the data from the current .csv file
@@ -268,6 +307,9 @@ void SolveManager::readFile() {
 
 	// Reset flags that might have been set while reading the file
 	m_fileStream.clear();
+
+	// Update the number of solves
+	m_numSolves = m_solves.size();
 
 	// Now compute averages
 	updateAverages();
