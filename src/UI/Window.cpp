@@ -1,3 +1,4 @@
+#include <cstring> // std::memcpy
 #include <thread>
 #include <unistd.h> // usleep(int)
 
@@ -65,9 +66,14 @@ void Window::keyPressEvent(QKeyEvent* event) {
 	// Stopping timer -> write our solve data to a .csv, update our averages, and generate a new scramble
 	if (m_timer->active()) { 
 		// Create a data solve_t
+
+		// Solve time
 		double time = m_timer->time();
+		// Current date, represented as time since Unix Epoch
 		long long date = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		uint8_t* scramble = m_cube->getRawScramble();
+		// Copy of the current scramble
+		uint8_t* scramble = new uint8_t[30];
+		std::memcpy(scramble, m_cube->getRawScramble(), 30); // Scramble is always (max) 30 moves, each move is 1 byte -> 30 bytes
 		solve_t solve = { time, date, scramble };
 
 		// Record the solve to our .csv file
