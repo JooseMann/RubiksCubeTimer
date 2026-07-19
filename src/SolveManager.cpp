@@ -1,8 +1,10 @@
-#include <algorithm> // sort()
+#include <algorithm> // std::sort
 #include <cstdint> // uint8_t
 #include <cstdlib> // std::exit
+#include <ctime> // std::time
 #include <filesystem> // std::filesteam::exists
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -29,7 +31,7 @@ SolveManager::SolveManager(const char* filename) {
 	}
 
 	// If the file was just created (fileExists == false beforehand), write a header for the .csv file.
-	if (!fileExists) m_fileStream << "time,date,scramble\n";
+	if (!fileExists) m_fileStream << "Time,Comment,Scramble,Date\n";
 
 	// Initialize solves and averages
 	m_solves = std::vector<solve_t>();
@@ -57,15 +59,25 @@ void SolveManager::addSolve(const solve_t& solve) {
 	updateAverages();
 	
 	// Get our solve as a string
-	// To convert time to a string with only 2 decimal places (instead of X.XX0000), use std::streamstring
-	std::stringstream strStream;
-	strStream << std::fixed << std::setprecision(2) << solve.time;
-	std::string solveStr = strStream.str() + "," + std::to_string(solve.date) + "," + SolveManager::ScrambleToString(solve.scramble); 
+	std::stringstream strStream, dateStream;
+	strStream << solve.time << + ",\"" << solve.comment + "\"," << SolveManager::ScrambleToString(solve.scramble);
+
+	// Now get our date. Convert to UTC, then apply formatting
+	struct std::tm* datetime = std::gmtime(&solve.date); // Get our date in UTC
+	// Apply formatting with std::stringstream
+	dateStream << std::fixed << std::setw(4) << std::setfill('0') << std::to_string(1900 + datetime->tm_year) << "-" // Year
+			   << std::fixed << std::setw(2) << std::setfill('0') << std::to_string(1 + datetime->tm_mon) << "-"     // Month
+			   << std::fixed << std::setw(2) << std::setfill('0') << std::to_string(datetime->tm_mday) << " "        // Day
+			   << std::fixed << std::setw(2) << std::setfill('0') << std::to_string(datetime->tm_hour) << ":"        // Hour
+			   << std::fixed << std::setw(2) << std::setfill('0') << std::to_string(datetime->tm_min) << ":"         // Minute
+			   << std::fixed << std::setw(2) << std::setfill('0') << std::to_string(datetime->tm_sec) << " +0000";   // Seconds, in UTC so always +0000
+
+	// Get our final string
+	std::string solveStr = strStream.str() + "," + dateStream.str();
 
 	// Write to our .csv file using our string
 	m_fileStream.seekp(0, m_fileStream.end);
-	m_fileStream << solveStr.c_str();
-	m_fileStream << "\n";
+	m_fileStream << solveStr << "\n";
 }
 
 // Convert a scramble representation to a string.
@@ -124,7 +136,7 @@ std::string SolveManager::ScrambleToString(const uint8_t* scramble, int scramble
     }
 
     // The last character in scrambleStr will always be an extraneous space, remove that here
-    scrambleStr[scrambleStr.length() - 1] = '\0';
+    scrambleStr = scrambleStr.substr(0, scrambleStr.length() - 1);
 
     return scrambleStr;
 }
@@ -241,8 +253,8 @@ void SolveManager::updateAverages() {
 			adjustedTime = sumOfTimes;
 
 			for (int j = 0; j < 5; ++j) {
-				adjustedTime -= sortedSolves[i]; // Best 5 solves
-				adjustedTime -= sortedSolves[sortedSolves.size() - i - 1]; // Worst 5 solves
+				adjustedTime -= sortedSolves[j]; // Best 5 solves
+				adjustedTime -= sortedSolves[sortedSolves.size() - j - 1]; // Worst 5 solves
 			}
 
 			m_averages.ao100 = adjustedTime / 90;
@@ -262,7 +274,9 @@ void SolveManager::readFile() {
 	unsigned int numLines = 0;
 	char rawLine[1024];
 	std::string line;
-	std::string stats[3]; // Stats here are time (0), date (1), and scramble (2)
+	std::string stats[4]; // Stats here are time (0), comment (1), scramble (2), and date (3)
+	struct std::tm tm;
+	std::stringstream strStream;
 
 	// Keep reading the file while not at EOF
 	while (!m_fileStream.eof()) {
@@ -280,11 +294,11 @@ void SolveManager::readFile() {
 		if (line.length() <= 1) break;
 
 		// Here, we are reading a CSV file. So, we deliminate by commas here.
-		for (int i = 0; i < 3; ++i) {
+		for (int i = 0; i < 4; ++i) {
 			// Get the comma's position
 			int delimPos = line.find(',');
 
-			// Get our desired statistic (time -> date -> scramble)
+			// Get our desired statistic (time -> comment -> scramble ->)
 			stats[i] = line.substr(0, delimPos);
 
 			// Erase everything up to and including the comma
@@ -293,10 +307,17 @@ void SolveManager::readFile() {
 		}
 
 		// Write it all into a solve
+
 		double time = std::stod(stats[0]);
-		long date = std::stol(stats[1]);
+		std::string comment = stats[1].substr(1, stats[1].length() - 2); // Get the comment without quotation marks
 		uint8_t* scramble = SolveManager::StringToScramble(stats[2]); // Heap allocated
-		solve_t solve = { time, date, scramble };
+
+		// Get the date by parsing with std::get_time
+		strStream = std::stringstream(stats[3]);
+		strStream >> std::get_time(&tm, "%x\t%X"); // Date -> whitespace -> time, as according to locale
+		std::time_t date = std::mktime(&tm);
+
+		solve_t solve = { time, comment, scramble, date };
 
 		// Add this solve to our list of solves
 		m_solves.push_back(solve);
