@@ -3,6 +3,7 @@
 #include <unistd.h> // usleep(int)
 
 #include <Qt>
+#include <QApplication> // QApplication::quit()
 #include <QFont>
 #include <QGridLayout>
 #include <QLabel>
@@ -59,46 +60,55 @@ Window::~Window() {
 }
 
 void Window::keyPressEvent(QKeyEvent* event) {
-	// First check whether the timer is currently active or inactive.
-	// If active, then we are stopping the timer and need to generate a new scramble.
-	// If inactive, then we are starting the timer and need to reset it before marking it as active.
+	
+	// Check what keys were pressed.
+	// Space = Start/Stop timer, Esc = Exit
 
-	// Stopping timer -> write our solve data to a .csv, update our averages, and generate a new scramble
-	if (m_timer->active()) { 
-		// Create a data solve_t
-
-		// Solve time
-		double time = m_timer->time();
-
-		// Current date
-		std::time_t date = std::time(NULL);
-
-		// Copy of the current scramble
-		uint8_t* scramble = new uint8_t[30];
-		std::memcpy(scramble, m_cube->getRawScramble(), 30); // Scramble is always (max) 30 moves, each move is 1 byte -> 30 bytes
-
-		solve_t solve = { time, std::string(""), scramble, date }; // Comment is blank by default
-
-		// Record the solve to our .csv file
-		m_solveManager->addSolve(solve);
-
-		// Update our averages
-		m_averages->updateAverages(m_solveManager->averages());
-
-		// Generate and display a new scramble
-		m_cube->generateScramble();
-		m_scrambleLabel->setText(m_cube->getStringScramble());
+	if (event->key() == Qt::Key_Escape) {
+		QApplication::quit();
 	}
+	else if (event->key() == Qt::Key_Space) {
+		// First check whether the timer is currently active or inactive.
+		// If active, then we are stopping the timer and need to generate a new scramble.
+		// If inactive, then we are starting the timer and need to reset it before marking it as active.
 
-	// Starting timer -> reset timer to 0.00 and update absolute time to start measuring elapsed time
-	if (!m_timer->active()) {
-		m_timer->resetTimer();
-		m_timer->updateAbsoluteTime();
+		// Stopping timer -> write our solve data to a .csv, update our averages, and generate a new scramble
+		if (m_timer->active()) { 
+			// Create a data solve_t
+
+			// Solve time
+			double time = m_timer->time();
+
+			// Current date
+			std::time_t date = std::time(NULL);
+
+			// Copy of the current scramble
+			uint8_t* scramble = new uint8_t[30];
+			std::memcpy(scramble, m_cube->getRawScramble(), 30); // Scramble is always (max) 30 moves, each move is 1 byte -> 30 bytes
+
+			solve_t solve = { time, std::string(""), scramble, date }; // Comment is blank by default
+
+			// Record the solve to our .csv file
+			m_solveManager->addSolve(solve);
+
+			// Update our averages
+			m_averages->updateAverages(m_solveManager->averages());
+
+			// Generate and display a new scramble
+			m_cube->generateScramble();
+			m_scrambleLabel->setText(m_cube->getStringScramble());
+		}
+
+		// Starting timer -> reset timer to 0.00 and update absolute time to start measuring elapsed time
+		if (!m_timer->active()) {
+			m_timer->resetTimer();
+			m_timer->updateAbsoluteTime();
+		}
+
+		// Mark the timer as active
+		// This will cause m_timerThread to start / stop incrementing the timer
+		m_timer->toggleActive();
 	}
-
-	// Mark the timer as active
-	// This will cause m_timerThread to start / stop incrementing the timer
-	m_timer->toggleActive();
 }
 
 // Set the default layout settings
