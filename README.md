@@ -5,6 +5,7 @@ A Qt desktop application for timing Rubik's Cube solves
 
 1. Generate a random 3x3 scramble.
 2. Start and stop a timer to time your solves.
+3. Compute Ao5, Ao12, Ao100, and overall average for a session.
 
 ## Building with CMake
 
@@ -28,13 +29,19 @@ make
 
 This generates the `QubeTimer` executable in the `build/` directory.
 
-[^1]: I am not sure if these tools differ on Windows, so building there will most likely be at least a little different.
+[^1]: I am not sure how these tools differ on Windows, so building there will most likely be at least a little different.
 
 ## Project Progress
 - [X] A randomly generated 3x3 scramble.
 - [X] A running timer that shows the time it takes to solve the cube.
   - [X] Keybinds to start and stop the timer on command.
-- [ ] A system that records your solves over time, and computes statistics about them.
-  - [ ] Show the statistics (ao5, ao12, ao100, session average) on screen
+- [X] A system that records your solves over time, and computes statistics about them.
+  - [X] Show the statistics (current Ao5, Ao12, Ao100, and session average) on screen.
+- [ ] A method of showing past solves in a list, and being able to click on one for more information on an individual solve.
+  - [ ] Allow individual solves to be marked as +2 or DNF.
 - [ ] A scramble display that shows the correct scramble state, to verify that the scramble was done correctly.
+- [ ] Allow different sessions to be created and switched between.
+  - [ ] Allow these sessions to be named.
 - [ ] Allow randomly generated scrambles for other cubes (e.g., 2x2 and 4x4 scrambles).
+- [ ] An overall statistics page, showing best ever solve, Ao5, Ao12, Ao100, and session average, etc.
+- [ ] Miscellaneous bug fixes.
