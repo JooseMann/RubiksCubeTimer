@@ -1,0 +1,29 @@
+The entire cube is made up of 6 faces. 
+Each face is represented as an array of 9 bytes, where each byte denotes the color of that piece.
+The faces use this order within in the array:
+  - White (0) -> Orange (1) -> Green (2) -> Red (3) -> Blue (4) -> Yellow (5)
+
+The color is determined by the following format:
+  - White:  0  (0x0,  0b00000000)
+  - Orange: 1  (0x1,  0b00000001)
+  - Green:  2  (0x2,  0b00000010)
+  - Red:    4  (0x4,  0b00000100)
+  - Blue:   8  (0x8,  0b00001000)
+  - Yellow: 16 (0x10, 0b00010000)
+
+Each individual piece could either be a center piece, edge piece, or corner piece.
+This is denoted in 2 ways: first using the position of the piece in the array, as well as using the upper 2 bits of the string.
+
+This is done with the format:
+  - Center: 0x40 (0b01000000)
+  - Edge:   0x80 (0b10000000)
+  - Corner: 0xC0 (0b11000000)
+
+Pieces are placed in the array by starting at the top-left and then moving right, as if reading text.
+The pieces are oriented with the green face forward and the white face on top.
+For example, the green face would have the white-orange-green corner piece (top-left), then the white-green edge piece (top-middle), and so on.
+
+Therefore, each position in the array will always be the same type of piece.
+  - Indexes 0, 2, 6, & 8 are corner pieces
+  - Indexes 1, 3, 5, & 7 are edge pieces
+  - Index 4 is the center piece.
