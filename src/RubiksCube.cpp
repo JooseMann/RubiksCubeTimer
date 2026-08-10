@@ -1,10 +1,14 @@
 #include <cstdint>
-#include <random>
-#include <string>
+#include <list>
 #include <QString>
+#include <string>
+#include <utility>
 
 #include "RubiksCube.hpp"
 #include "SolveManager.hpp"
+
+// Iterator typedef to avoid writing out the long type declaration every time
+typedef std::list<std::pair<int, int>>::const_iterator listitr_t;
 
 RubiksCube::RubiksCube() {
     // Allocate space for 30 moves as the scramble
@@ -86,30 +90,286 @@ void RubiksCube::generateScramble() {
     this->updateCubeRepresentation();
 }
 
+// Rotates the face given by the parameter by 90 degrees clockwise.
+// When doing any move, a face will also have to rotate alongside whatever else was moved. This function handles that.
+void RubiksCube::rotateFinalFace(int face) {
+    // The bottom row (that we calculate last) will be replaced with the rhs.
+    // So store the rhs from before we overwrite it, that way we just move the data around instead of writing incorrect data.
+    uint8_t rhs[3];
+
+    // Store the rhs in reverse, so that the resulting pieces will be placed in the right order.
+    rhs[0] = m_cubeRepresentation[face][8];
+    rhs[1] = m_cubeRepresentation[face][5];
+    rhs[2] = m_cubeRepresentation[face][2];
+
+    // We also store the top-left and top-center pieces, as we will need to use them after we overwrite them.
+    uint8_t topLeft = m_cubeRepresentation[face][0];
+    uint8_t topCenter = m_cubeRepresentation[face][1];
+
+    int row; // Row that the piece lands on (0 = top, 1 = center, 2 = bottom)
+
+    for (int piece = 0; piece < 9; ++piece) {
+        row = piece / 3;
+
+        if (piece == 2) {
+            // We need to access data in the top-left piece that has already been overwritten.
+            // Use the data from before it was changed in topLeft
+            m_cubeRepresentation[face][2] = topLeft;
+        }
+        else if (piece == 5) {
+            // Same as with piece #2, but for the top-center piece instead.
+            m_cubeRepresentation[face][5] = topCenter;
+        }
+        else if (row == 0) {
+            // Replace 0 with 6, 1 with 3, and 2 with 0.
+            m_cubeRepresentation[face][piece] = m_cubeRepresentation[face][6 - piece * 3];
+        }
+        else if (row == 1) {
+            // Replace 3 with 7, 4 with 4 (center stays unchanged), and 5 with 1.
+            m_cubeRepresentation[face][piece] = m_cubeRepresentation[face][7 - (piece - 3) * 3];
+        }
+        else if (row == 2) {
+            // Use stored data to make sure that we don't copy over data that we already overwrote.
+            m_cubeRepresentation[face][piece] = rhs[piece - 6];
+        }
+    }
+}
+
 void RubiksCube::R() {
-    // Not implemented
+    // Map that describes how to rotate the pieces around for a R move.
+    // See `util/reference/cube_representation.txt` for details on how the faces are labeled by integers.
+    std::list<std::pair<int, int>> turnMap ({
+        std::make_pair(2, 5), // Green -> Yellow
+        std::make_pair(5, 4), // Yellow -> Blue
+        std::make_pair(4, 0), // Blue -> White
+        std::make_pair(0, 2)  // White -> Green
+    });
+
+    // Store the original values of the first face we overwrite (here, the Green face).
+    // That way we can refer back to it after overwriting everything else.
+    // We'll need to reference the rhs of the Green face, so store those values.
+    uint8_t greenFace[3];
+    greenFace[0] = m_cubeRepresentation[2][2];
+    greenFace[1] = m_cubeRepresentation[2][5];
+    greenFace[2] = m_cubeRepresentation[2][8];
+
+    // Different faces have to be handled slightly differently. Keep track of which face we're editing to make sure that we update it correctly.
+    int iteration = 0;
+
+    for (listitr_t itr = turnMap.begin(); itr != turnMap.end(); ++itr, ++iteration) {
+        for (int i = 0; i < 3; ++i) {
+            if (iteration == 1) { // Yellow -> Blue
+                // The blue face is working with the lhs instead of the rhs, opposite of the rest.
+                // It also goes in descending order as compared to the other face, so we have to reverse the result.
+                m_cubeRepresentation[itr->first][i * 3 + 2] = m_cubeRepresentation[itr->second][6 - i * 3];
+            }
+            else if (iteration == 2) { // Blue -> White
+                // Same as iteration #1, but the blue face is on the other side of the expression.
+                // Naturally, we need to reverse the result here as well.
+                m_cubeRepresentation[itr->first][i * 3] = m_cubeRepresentation[itr->second][8 - i * 3];
+            }
+            else if (iteration == 3) { // White -> Green
+                // Use the original green face instead of our recalcuated face
+                m_cubeRepresentation[itr->first][i * 3 + 2] = greenFace[i];
+            }
+            else {
+                // Otherwise, do the base operation.
+                m_cubeRepresentation[itr->first][i * 3 + 2] = m_cubeRepresentation[itr->second][i * 3 + 2];
+            }
+        }
+    }
+
+    // Finally, the Red side needs to be rotated 90 degrees clockwise.
+    this->rotateFinalFace(3); // Red face = 3
 }
 
 void RubiksCube::U() {
-    // Not implemented
+    // Map for how to swap pieces around for a U move.
+    std::list<std::pair<int, int>> turnMap ({
+        std::make_pair(2, 3), // Green -> Red
+        std::make_pair(3, 4), // Red -> Blue
+        std::make_pair(4, 1), // Blue -> Orange
+        std::make_pair(1, 2)  // Orange -> Green
+    });
+
+    // Like in R, we'll need to store the Green face to refer back to it later.
+    // Since we're editing the top row (pieces 0 - 2), store those values
+    uint8_t greenFace[3];
+    greenFace[0] = m_cubeRepresentation[2][0];
+    greenFace[1] = m_cubeRepresentation[2][1];
+    greenFace[2] = m_cubeRepresentation[2][2];
+
+    // The last iteration has to use greenFace, so keep track of what iteration we're on here
+    int iteration = 0;
+
+    for (listitr_t itr = turnMap.begin(); itr != turnMap.end(); ++itr, ++iteration) {
+        for (int i = 0; i < 3; ++i) {
+            if (iteration == 3) {
+                // Last iteration, use the original Green face instead of our recalcuated face
+                m_cubeRepresentation[itr->first][i] = greenFace[i];
+            }
+            else {
+                // Base operation: swap around the pieces directly. Nothing fancy needs to be done as all pieces are swapped in the same manner here
+                m_cubeRepresentation[itr->first][i] = m_cubeRepresentation[itr->second][i];
+            }
+        }
+    }
+
+    // White face needs to be rotated by 90 degrees clockwise, do that final calculation here.
+    this->rotateFinalFace(0); // White face = 0
 }
 
 void RubiksCube::F() {
-    // Not implemented
+    // Doing an F move is tricker than an R or U, since the pieces (by index) we move are different for each face.
+    // For that reason, we compute the resulting state manually instead of using an iterator to help.
+    
+    // First store the state of the white face before turning it for later
+    uint8_t whiteFace[3];
+    whiteFace[0] = m_cubeRepresentation[0][6];
+    whiteFace[1] = m_cubeRepresentation[0][7];
+    whiteFace[2] = m_cubeRepresentation[0][8];
+
+    // Replace White (pieces 6 - 8) with Orange (pieces 8, 5, and 2, reverse order)
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[0][i + 6] = m_cubeRepresentation[1][8 - i * 3];
+    }
+
+    // Replace Orange (pieces 2, 5, and 8) with Yellow (pieces 0 - 2);
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[1][i * 3 + 2] = m_cubeRepresentation[5][i];
+    }
+
+    // Replace Yellow (pieces 0 - 2) with Red (pieces 6, 3, and 0, reverse order)
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[5][i] = m_cubeRepresentation[3][6 - i * 3];
+    }
+
+    // Replace Red (pieces 0, 3, and 6) with White (pieces 6 - 8)
+    // Since we already overwrote the White face with the Orange face, we need to use our cached whiteFace variable
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[3][i * 3] = whiteFace[i];
+    }
+
+    // We also have to account for the Green face rotating while doing an F.
+    this->rotateFinalFace(2); // Green face = 2
 }
 
 void RubiksCube::L() {
-    // Not implemented
+    // This case has the same faces altered as R, but with the direction reversed.
+    // We also have to work with the lhs of the cube instead of the rhs (with the exception of the Blue face).
+    std::list<std::pair<int, int>> turnMap ({
+        std::make_pair(0, 4), // White -> Blue
+        std::make_pair(4, 5), // Blue -> Yellow
+        std::make_pair(5, 2), // Yellow -> Green
+        std::make_pair(2, 0)  // Green -> White
+    });
+
+    // We'll have to overwrite and later reference the White face, so make sure to cache the lhs here.
+    uint8_t whiteFace[3];
+    whiteFace[0] = m_cubeRepresentation[0][0];
+    whiteFace[1] = m_cubeRepresentation[0][3];
+    whiteFace[2] = m_cubeRepresentation[0][6];
+
+    // Keeps track of what iteration of the loop we're on.
+    int iteration = 0;
+
+    for (listitr_t itr = turnMap.begin(); itr != turnMap.end(); ++itr, ++iteration) {
+        for (int i = 0; i < 3; ++i) {
+            if (iteration == 0) { // White -> Blue
+                // The Blue face has to turn its rhs instead of lhs (unlike the others)
+                // Blue pieces go in descending order instead of ascending order, so reverse the result
+                m_cubeRepresentation[itr->first][i * 3] = m_cubeRepresentation[itr->second][8 - i * 3];
+            }
+            else if (iteration == 1) { // Blue -> Yellow
+                // Same idea as with the first iteration, but overwriting the Blue face instead of overwriting with the Blue face.
+                m_cubeRepresentation[itr->first][i * 3 + 2] = m_cubeRepresentation[itr->second][6 - i * 3];
+            }
+            else if (iteration == 3) { // Green -> White
+                // We already overwrote the White face, use our cached pieces in place
+                m_cubeRepresentation[itr->first][i * 3] = whiteFace[i];
+            }
+            else {
+                // Base formula, move around the lhs pieces.
+                m_cubeRepresentation[itr->first][i * 3] = m_cubeRepresentation[itr->second][i * 3];
+            }
+        }
+    }
+
+    // Make sure to also rotate the Orange face 90 degrees counterclockwise
+    this->rotateFinalFace(1); // Orange face = 1
 }
 
 void RubiksCube::D() {
-    // Not implemented
+    // This case is similar to U, turning the same faces but in reverse.
+    std::list<std::pair<int, int>> turnMap ({
+        std::make_pair(2, 1), // Green -> Orange
+        std::make_pair(1, 4), // Orange -> Blue
+        std::make_pair(4, 3), // Blue -> Red
+        std::make_pair(3, 2)  // Red -> Green
+    });
+
+    // Cache the Green face, so we use the original values while turning instead of overwritten values.
+    uint8_t greenFace[3];
+    greenFace[0] = m_cubeRepresentation[2][6];
+    greenFace[1] = m_cubeRepresentation[2][7];
+    greenFace[2] = m_cubeRepresentation[2][8];
+
+    // Iteration keeps track of when we need to use greenFace instead of swapping values in m_cubeRepresentation
+    int iteration = 0;
+
+    for (listitr_t itr = turnMap.begin(); itr != turnMap.end(); ++itr, ++iteration) {
+        for (int i = 0; i < 3; ++i) {
+            if (iteration == 3) { // Red -> Green
+                // Make sure to use our cached values instead of the overwritten values on the last iteration
+                m_cubeRepresentation[itr->first][i + 6] = greenFace[i];
+            }
+            else {
+                // Base formula, swap the bottom row
+                m_cubeRepresentation[itr->first][i + 6] = m_cubeRepresentation[itr->second][i + 6];
+            }
+        }
+    }
+
+    // Make sure to rotate the Yellow face at the end.
+    this->rotateFinalFace(5); // Yellow face = 5
 }
 
 void RubiksCube::B() {
-    // Not implemented
+    // B is like F in that each face has different pieces moved.
+    // So, like in F(), we take each case manually instead of in a nested for loop.
+
+    // We need to cache the white face, since that'll be overwritten and we'll need it later
+    // Store the top row in reverse, so that the right pieces are moved around later on
+    uint8_t whiteFace[3];
+    whiteFace[0] = m_cubeRepresentation[0][2];
+    whiteFace[1] = m_cubeRepresentation[0][1];
+    whiteFace[2] = m_cubeRepresentation[0][0];
+    
+    // White (pieces 0 - 2) -> Red (pieces 2, 5, and 8)
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[0][i] = m_cubeRepresentation[3][i * 3 + 2];
+    }
+
+    // Red (pieces 2, 5, and 8) -> Yellow (pieces 8 - 6, reversed order)
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[3][i * 3 + 2] = m_cubeRepresentation[5][8 - i];
+    }
+
+    // Yellow (pieces 6 - 8) -> Orange (pieces 0, 3, and 6)
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[5][i + 6] = m_cubeRepresentation[1][i * 3];
+    }
+
+    // Orange (pieces 0, 3, and 6) -> White (original values in whiteFace)
+    for (int i = 0; i < 3; ++i) {
+        m_cubeRepresentation[1][i * 3] = whiteFace[i];
+    }
+
+    // Update the Blue face to be rotated clockwise as a result of the turn
+    this->rotateFinalFace(4); // Blue face = 4
 }
 
+// Resets the Rubik's Cube's representation in memory (m_cubeRepresentation) to its default value, a solved cube.
 void RubiksCube::resetCubeRepresentation() {
     // Reset the cube to a solved state
     for (int face = 0; face < 6; ++face) {
@@ -136,6 +396,8 @@ void RubiksCube::resetCubeRepresentation() {
     }
 }
 
+// Updates the Rubik's Cube's representation in memory, m_cubeRepresentation, from the scramble in m_scramble.
+// Overwrites whatever was in m_cubeRepresentation beforehand.
 void RubiksCube::updateCubeRepresentation() {
     // First reset the cube's representation.
     this->resetCubeRepresentation();
@@ -181,3 +443,4 @@ void RubiksCube::updateCubeRepresentation() {
         }
     }
 }
+

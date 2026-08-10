@@ -33,6 +33,10 @@ private:
     uint8_t* m_scramble; // Binary representation of the scramble. See util/move_representation.txt
     int m_scrambleLen; // Length of the scramble.
 
+    // Rotates the face specified by the parameter 90 degrees clockwise, for use in each individual move's function.
+    // Each move alters 4 faces directly, then a 5th indirectly by rotating it (e.g., R also rotates the red face).
+    void rotateFinalFace(int face);
+
     // Individual moves for our cube representation.
     void R();
     void U();
