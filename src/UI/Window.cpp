@@ -1,4 +1,5 @@
 #include <cstring> // std::memcpy
+#include <qnamespace.h>
 #include <thread>
 #include <unistd.h> // usleep(int)
 
@@ -13,6 +14,7 @@
 #include "RubiksCube.hpp"
 #include "SolveManager.hpp"
 #include "UI/Averages.hpp"
+#include "UI/ScrambleDisplay.hpp"
 #include "UI/Timer.hpp"
 #include "UI/Window.hpp"
 
@@ -29,6 +31,7 @@ Window::Window(const char* filename, QWidget* parent) : QWidget(parent) {
 	m_font = QFont();
 	m_timer = new Timer(this);
 	m_averages = new Averages(this);
+    m_scrambleDisplay = new ScrambleDisplay(this);
 	m_keyEvent = new QKeyEvent(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier);
 
 	// Additional variables for handling the timer thread
@@ -42,6 +45,7 @@ Window::Window(const char* filename, QWidget* parent) : QWidget(parent) {
 	setupLayout();
 	setupFont();
 	setupScrambleLabel();
+    setupScrambleDisplay();
 	setupTimer();
 
 	// Setup our averages label
@@ -97,12 +101,18 @@ void Window::keyPressEvent(QKeyEvent* event) {
 			// Generate and display a new scramble
 			m_cube->generateScramble();
 			m_scrambleLabel->setText(m_cube->getStringScramble());
+
+            // Update the scramble display
+            m_scrambleDisplay->showScramble(m_cube->getCubeRepresentation());
 		}
 
 		// Starting timer -> reset timer to 0.00 and update absolute time to start measuring elapsed time
 		if (!m_timer->active()) {
 			m_timer->resetTimer();
 			m_timer->updateAbsoluteTime();
+
+            // Hide the scramble display.
+            m_scrambleDisplay->hideScramble();
 		}
 
 		// Mark the timer as active
@@ -129,6 +139,7 @@ void Window::setupLayout() {
 	m_layout->addWidget(m_scrambleLabel, 0, 0, 1, 10, Qt::AlignHCenter); // Also creates 10 columns
 	m_layout->addWidget(m_timer, 2, 0, 6, 10, Qt::AlignCenter);
 	m_layout->addWidget(m_averages->avgLabel(), 6, 0, 10, 2, Qt::AlignLeft | Qt::AlignBottom); // Also creates 10 rows
+    m_layout->addWidget(m_scrambleDisplay, 6, 7, 4, 3, Qt::AlignBottom | Qt::AlignRight);
 
 	// Disallow the rows and columns from stretching
 	// Also set each of their sizes to 1/10th of the screen's width or height, respectively
@@ -157,6 +168,12 @@ void Window::setupScrambleLabel() {
 void Window::setupFont() {
 	m_font.setFamily("Calibri");
 	m_font.setPointSize(22);
+}
+
+// Set default properties for m_scrambleDisplay
+void Window::setupScrambleDisplay() {
+    m_scrambleDisplay->show(); // Show the display on screen manually so we can paint in showScramble(uint8_t**)
+    m_scrambleDisplay->showScramble(m_cube->getCubeRepresentation()); // Get the scramble from m_cube, then draw it on the screen
 }
 
 // Set the default properties for m_timer

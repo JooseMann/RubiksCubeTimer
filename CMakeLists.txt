@@ -22,6 +22,7 @@ target_sources(QubeTimer
     PRIVATE
         # Headers (Qt Widgets)
         include/QubeTimer/UI/Averages.hpp
+        include/QubeTimer/UI/ScrambleDisplay.hpp
         include/QubeTimer/UI/Timer.hpp
         include/QubeTimer/UI/Window.hpp
         # Source files
@@ -29,6 +30,7 @@ target_sources(QubeTimer
         src/RubiksCube.cpp
         src/SolveManager.cpp
         src/UI/Averages.cpp
+        src/UI/ScrambleDisplay.cpp
         src/UI/Timer.cpp
         src/UI/Window.cpp
 )
